@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@fontsource-variable/material-symbols-outlined": "^5.2.45",
+    "@fontsource/inter": "^5.2.8",
     "@supabase/supabase-js": "^2.43.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

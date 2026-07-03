@@ -352,5 +352,159 @@ export const db = {
     list.push(newCat);
     setLocalData('categories', list);
     return newCat;
+  },
+
+  deleteTransaction: async (txId) => {
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: tx } = await supabase.from('transactions').select('*').eq('id', txId).single();
+        if (tx) {
+          const { data: acc } = await supabase.from('accounts').select('balance').eq('id', tx.account_id).single();
+          if (acc) {
+            let newBalance = acc.balance;
+            if (tx.type === 'Gasto') {
+              const amountWithCommission = Number(tx.amount) + Number(tx.commission || 0);
+              newBalance = Number((acc.balance + amountWithCommission).toFixed(2));
+              await supabase.from('accounts').update({ balance: newBalance }).eq('id', tx.account_id);
+            } else if (tx.type === 'Ingreso') {
+              newBalance = Number((acc.balance - Number(tx.amount)).toFixed(2));
+              await supabase.from('accounts').update({ balance: newBalance }).eq('id', tx.account_id);
+            } else if (tx.type === 'Transferencia') {
+              const amountWithCommission = Number(tx.amount) + Number(tx.commission || 0);
+              const newSrcBalance = Number((acc.balance + amountWithCommission).toFixed(2));
+              await supabase.from('accounts').update({ balance: newSrcBalance }).eq('id', tx.account_id);
+
+              if (tx.destination_account_id) {
+                const { data: destAcc } = await supabase.from('accounts').select('balance').eq('id', tx.destination_account_id).single();
+                if (destAcc) {
+                  const receivedAmount = Number(tx.amount) * Number(tx.rate_used || 1);
+                  await supabase.from('accounts').update({ balance: Number((destAcc.balance - receivedAmount).toFixed(2)) }).eq('id', tx.destination_account_id);
+                }
+              }
+            }
+          }
+          await supabase.from('transactions').delete().eq('id', txId);
+          return true;
+        }
+      }
+    }
+
+    const transactions = getLocalData('transactions', INITIAL_TRANSACTIONS);
+    const accounts = getLocalData('accounts', INITIAL_ACCOUNTS);
+    const txIndex = transactions.findIndex(t => t.id === txId);
+    if (txIndex !== -1) {
+      const tx = transactions[txIndex];
+      if (tx.type === 'Gasto') {
+        const acc = accounts.find(a => a.id === tx.accountId);
+        if (acc) {
+          const amountWithCommission = Number(tx.amount) + Number(tx.commission || 0);
+          acc.balance = Number((acc.balance + amountWithCommission).toFixed(2));
+        }
+      } else if (tx.type === 'Ingreso') {
+        const acc = accounts.find(a => a.id === tx.accountId);
+        if (acc) {
+          acc.balance = Number((acc.balance - Number(tx.amount)).toFixed(2));
+        }
+      } else if (tx.type === 'Transferencia') {
+        const srcAcc = accounts.find(a => a.id === tx.accountId);
+        const dstAcc = accounts.find(a => a.id === tx.destinationAccountId);
+        if (srcAcc) {
+          const amountWithCommission = Number(tx.amount) + Number(tx.commission || 0);
+          srcAcc.balance = Number((srcAcc.balance + amountWithCommission).toFixed(2));
+        }
+        if (dstAcc) {
+          const receivedAmount = tx.receivedAmount || (Number(tx.amount) * Number(tx.rateUsed || 1));
+          dstAcc.balance = Number((dstAcc.balance - receivedAmount).toFixed(2));
+        }
+      }
+      transactions.splice(txIndex, 1);
+      setLocalData('transactions', transactions);
+      setLocalData('accounts', accounts);
+      return true;
+    }
+    return false;
+  },
+
+  updateTransaction: async (txId, updatedTx) => {
+    // 1. Primero revertimos los cambios de la transacción anterior eliminándola (sin borrar el registro en DB, solo simulando su borrado en balance)
+    await db.deleteTransaction(txId);
+    
+    // 2. Insertamos la transacción modificada con el mismo ID original
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Conseguimos la cuenta y aplicamos el nuevo balance
+        const { data: acc } = await supabase.from('accounts').select('balance').eq('id', updatedTx.accountId).single();
+        if (acc) {
+          const amountWithCommission = Number(updatedTx.amount) + Number(updatedTx.commission || 0);
+          const newBalance = updatedTx.type === 'Gasto' 
+            ? Number((acc.balance - amountWithCommission).toFixed(2))
+            : Number((acc.balance + Number(updatedTx.amount)).toFixed(2));
+          await supabase.from('accounts').update({ balance: newBalance }).eq('id', updatedTx.accountId);
+        }
+
+        // Insertamos la transacción con el ID original
+        await supabase.from('transactions').insert({
+          id: txId,
+          description: updatedTx.description,
+          amount: updatedTx.amount,
+          currency: updatedTx.currency,
+          type: updatedTx.type,
+          account_id: updatedTx.accountId,
+          category_id: updatedTx.categoryId,
+          commission: updatedTx.commission,
+          commission_type: updatedTx.commissionType,
+          user_id: user.id,
+          date: updatedTx.date || new Date().toISOString()
+        });
+        return true;
+      }
+    }
+
+    // Para localStorage, db.deleteTransaction ya eliminó la transacción de la lista y actualizó el balance.
+    // Ahora agregamos la nueva con el ID correspondiente.
+    const transactions = getLocalData('transactions', INITIAL_TRANSACTIONS);
+    const accounts = getLocalData('accounts', INITIAL_ACCOUNTS);
+    const accountIndex = accounts.findIndex(a => a.id === updatedTx.accountId);
+    if (accountIndex !== -1) {
+      const acc = accounts[accountIndex];
+      const amountWithCommission = Number(updatedTx.amount) + Number(updatedTx.commission || 0);
+      acc.balance = updatedTx.type === 'Gasto' 
+        ? Number((acc.balance - amountWithCommission).toFixed(2))
+        : Number((acc.balance + Number(updatedTx.amount)).toFixed(2));
+      accounts[accountIndex] = acc;
+      setLocalData('accounts', accounts);
+    }
+    const newRecord = {
+      id: txId,
+      date: updatedTx.date || new Date().toISOString(),
+      ...updatedTx
+    };
+    transactions.unshift(newRecord);
+    setLocalData('transactions', transactions);
+    return true;
+  },
+
+  deleteAccount: async (accountId) => {
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('transactions').delete().eq('account_id', accountId);
+        await supabase.from('transactions').delete().eq('destination_account_id', accountId);
+        await supabase.from('accounts').delete().eq('id', accountId);
+        return true;
+      }
+    }
+    const accounts = getLocalData('accounts', INITIAL_ACCOUNTS);
+    const transactions = getLocalData('transactions', INITIAL_TRANSACTIONS);
+    
+    const filteredAccs = accounts.filter(a => a.id !== accountId);
+    setLocalData('accounts', filteredAccs);
+
+    const filteredTxs = transactions.filter(t => t.accountId !== accountId && t.destinationAccountId !== accountId);
+    setLocalData('transactions', filteredTxs);
+    return true;
   }
 };
+

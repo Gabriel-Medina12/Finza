@@ -106,6 +106,30 @@ export default function App() {
     }
   };
 
+  const handleDeleteAccount = async (accountId) => {
+    const success = await db.deleteAccount(accountId);
+    if (success) {
+      setAccounts(await db.getAccounts());
+      setTransactions(await db.getTransactions());
+    }
+  };
+
+  const handleDeleteTransaction = async (txId) => {
+    const success = await db.deleteTransaction(txId);
+    if (success) {
+      setTransactions(await db.getTransactions());
+      setAccounts(await db.getAccounts());
+    }
+  };
+
+  const handleUpdateTransaction = async (txId, updatedTx) => {
+    const success = await db.updateTransaction(txId, updatedTx);
+    if (success) {
+      setTransactions(await db.getTransactions());
+      setAccounts(await db.getAccounts());
+    }
+  };
+
   const handleSaveCategory = async (newCat) => {
     const cat = await db.addCategory(newCat);
     if (cat) {
@@ -123,6 +147,8 @@ export default function App() {
             categories={categories}
             activeRates={activeRates}
             onNavigateToAdd={() => setActiveTab('add')}
+            onDeleteTransaction={handleDeleteTransaction}
+            onUpdateTransaction={handleUpdateTransaction}
           />
         );
       case 'add':
@@ -158,6 +184,7 @@ export default function App() {
             activeRates={activeRates}
             onSyncRates={handleSyncRates}
             onSaveAccount={handleSaveAccount}
+            onDeleteAccount={handleDeleteAccount}
             onSaveCategory={handleSaveCategory}
           />
         );

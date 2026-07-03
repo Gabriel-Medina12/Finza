@@ -7,6 +7,7 @@ export default function RatesSettings({
   activeRates, 
   onSyncRates, 
   onSaveAccount, 
+  onDeleteAccount,
   onSaveCategory 
 }) {
   const [calcSource, setCalcSource] = useState('VES');
@@ -356,7 +357,20 @@ export default function RatesSettings({
             {accounts.map(acc => (
               <div key={acc.id} className="flex justify-between items-center text-xs p-2 rounded-lg bg-surface-container-low/40 border border-white/5">
                 <span className="font-semibold text-white">{acc.name}</span>
-                <span className="text-on-surface-variant font-bold">{acc.balance.toLocaleString()} {acc.currency}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-on-surface-variant font-bold">{acc.balance.toLocaleString()} {acc.currency}</span>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm(`¿Estás seguro de eliminar la cuenta "${acc.name}"? Esto borrará la cuenta y todos sus movimientos asociados.`)) {
+                        onDeleteAccount(acc.id);
+                      }
+                    }}
+                    className="text-error hover:text-red-400 p-1 flex items-center active-shrink"
+                    title="Eliminar Cuenta"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
