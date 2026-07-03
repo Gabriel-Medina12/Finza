@@ -92,7 +92,7 @@ export default function RatesSettings({
   return (
     <div className="max-w-md mx-auto py-md flex flex-col gap-lg pb-12 select-none">
       
-      <section className="glass-card rounded-2xl p-4 flex flex-col gap-3">
+      <section className="glass-card rounded-2xl p-4 flex flex-col gap-3 relative z-30">
         <div className="flex justify-between items-center">
           <div>
             <h4 className="text-sm font-bold text-white">Tasas del Día (BCV / USDT)</h4>
@@ -123,7 +123,7 @@ export default function RatesSettings({
         </div>
       </section>
 
-      <section className="glass-card rounded-2xl p-4 flex flex-col gap-3">
+      <section className="glass-card rounded-2xl p-4 flex flex-col gap-3 relative z-20">
         <h4 className="text-sm font-bold text-white">Calculadora Cambiaria Bidireccional</h4>
         
         <div className="flex flex-col gap-3">
@@ -230,7 +230,7 @@ export default function RatesSettings({
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-4 relative z-10">
         <div className="glass-card rounded-2xl p-4">
           <div className="flex justify-between items-center mb-3">
             <h4 className="text-sm font-bold text-white">Configurar Cuentas</h4>
