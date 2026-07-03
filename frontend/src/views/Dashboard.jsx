@@ -20,6 +20,9 @@ export default function Dashboard({
   const [editCategory, setEditCategory] = useState('');
   const [editAccount, setEditAccount] = useState('');
   const [editCommission, setEditCommission] = useState(0);
+  
+  const [showEditAccDropdown, setShowEditAccDropdown] = useState(false);
+  const [showEditCatDropdown, setShowEditCatDropdown] = useState(false);
 
   const handleTxClick = (tx) => {
     setEditingTx(tx);
@@ -244,31 +247,101 @@ export default function Dashboard({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 relative z-20">
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase">Cuenta</label>
-                <select 
-                  value={editAccount}
-                  onChange={(e) => setEditAccount(e.target.value)}
-                  className="bg-surface-container-low text-white text-sm py-2 px-3 rounded-lg border border-white/10 outline-none"
-                >
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>{acc.name} ({acc.currency})</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditAccDropdown(!showEditAccDropdown);
+                      setShowEditCatDropdown(false);
+                    }}
+                    className="w-full bg-surface-container-low text-white text-sm py-2 px-3 rounded-lg border border-white/10 outline-none flex justify-between items-center active-shrink font-semibold"
+                  >
+                    <span>
+                      {accounts.find(a => a.id === editAccount)?.name || 'Seleccionar Cuenta'} ({accounts.find(a => a.id === editAccount)?.currency})
+                    </span>
+                    <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                  </button>
+
+                  {showEditAccDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowEditAccDropdown(false)} />
+                      <div className="absolute top-[100%] left-0 right-0 mt-1 bg-[#1e293b] border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in max-h-40 overflow-y-auto custom-scrollbar">
+                        {accounts.map((acc) => (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            onClick={() => {
+                              setEditAccount(acc.id);
+                              setShowEditAccDropdown(false);
+                            }}
+                            className={`w-full text-left py-2.5 px-4 text-xs font-semibold block hover:bg-white/5 ${
+                              editAccount === acc.id ? 'bg-primary/20 text-primary' : 'text-white'
+                            }`}
+                          >
+                            {acc.name} ({acc.currency}) - {acc.balance.toLocaleString()} {acc.currency}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 relative z-10">
                 <label className="text-[10px] font-bold text-on-surface-variant uppercase">Categoría</label>
-                <select 
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  className="bg-surface-container-low text-white text-sm py-2 px-3 rounded-lg border border-white/10 outline-none"
-                >
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditCatDropdown(!showEditCatDropdown);
+                      setShowEditAccDropdown(false);
+                    }}
+                    className="w-full bg-surface-container-low text-white text-sm py-2 px-3 rounded-lg border border-white/10 outline-none flex justify-between items-center active-shrink font-semibold"
+                  >
+                    <div className="flex items-center gap-2">
+                      {editCategory && (
+                        <span 
+                          className="material-symbols-outlined text-sm" 
+                          style={{ color: categories.find(c => c.id === editCategory)?.color }}
+                        >
+                          {categories.find(c => c.id === editCategory)?.icon}
+                        </span>
+                      )}
+                      <span>
+                        {categories.find(c => c.id === editCategory)?.name || 'Seleccionar Categoría'}
+                      </span>
+                    </div>
+                    <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                  </button>
+
+                  {showEditCatDropdown && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowEditCatDropdown(false)} />
+                      <div className="absolute top-[100%] left-0 right-0 mt-1 bg-[#1e293b] border border-white/10 rounded-lg overflow-hidden shadow-2xl z-50 animate-fade-in max-h-40 overflow-y-auto custom-scrollbar">
+                        {categories.map((cat) => (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setEditCategory(cat.id);
+                              setShowEditCatDropdown(false);
+                            }}
+                            className={`w-full text-left py-2.5 px-4 text-xs font-semibold flex items-center gap-2 hover:bg-white/5 ${
+                              editCategory === cat.id ? 'bg-primary/20 text-primary' : 'text-white'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-sm" style={{ color: cat.color }}>{cat.icon}</span>
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+
 
               <div className="flex gap-3 mt-4">
                 <button 
