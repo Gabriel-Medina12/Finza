@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { authService } from '../services/supabase';
 import Logo from '../components/Logo';
 
@@ -12,8 +12,40 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Lockout states
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const checkLockout = () => {
+      const lockoutUntil = localStorage.getItem('finza_lockout_until');
+      if (lockoutUntil) {
+        const timeLeft = Math.ceil((new Date(lockoutUntil).getTime() - Date.now()) / 1000);
+        if (timeLeft > 0) {
+          setLockoutTimeLeft(timeLeft);
+        } else {
+          setLockoutTimeLeft(0);
+          localStorage.removeItem('finza_lockout_until');
+          localStorage.removeItem('finza_failed_attempts');
+        }
+      }
+    };
+
+    checkLockout();
+    const interval = setInterval(checkLockout, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimeLeft = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs}h ${mins}m ${secs}s`;
+  };
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (lockoutTimeLeft > 0) return;
     if (!email || !password) return;
     setLoading(true);
     setError('');
@@ -28,8 +60,20 @@ export default function Login({ onLoginSuccess }) {
     setLoading(false);
 
     if (res.error) {
-      setError(res.error.message || "Error al autenticar.");
+      const currentAttempts = Number(localStorage.getItem('finza_failed_attempts') || 0) + 1;
+      localStorage.setItem('finza_failed_attempts', currentAttempts);
+
+      if (currentAttempts >= 5) {
+        const lockoutTime = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+        localStorage.setItem('finza_lockout_until', lockoutTime);
+        setLockoutTimeLeft(3 * 60 * 60);
+        setError("Demasiados intentos. Acceso bloqueado por 3 horas.");
+      } else {
+        setError(`${res.error.message || "Error al autenticar."} (Intento ${currentAttempts} de 5)`);
+      }
     } else if (res.data?.user) {
+      localStorage.removeItem('finza_failed_attempts');
+      localStorage.removeItem('finza_lockout_until');
       onLoginSuccess({
         email: res.data.user.email,
         fullName: res.data.user.user_metadata?.full_name || res.data.user.email.split('@')[0],
@@ -83,7 +127,8 @@ export default function Login({ onLoginSuccess }) {
               placeholder="Nombre Completo"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary"
+              disabled={lockoutTimeLeft > 0}
+              className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary disabled:opacity-50"
               required
             />
           )}
@@ -93,7 +138,8 @@ export default function Login({ onLoginSuccess }) {
             placeholder="Correo Electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary"
+            disabled={lockoutTimeLeft > 0}
+            className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary disabled:opacity-50"
             required
           />
 
@@ -102,7 +148,8 @@ export default function Login({ onLoginSuccess }) {
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary"
+            disabled={lockoutTimeLeft > 0}
+            className="w-full bg-white text-black py-4 px-5 rounded-xl outline-none placeholder-gray-400 font-medium text-sm transition-all focus:ring-2 focus:ring-primary disabled:opacity-50"
             required
           />
 
@@ -117,11 +164,17 @@ export default function Login({ onLoginSuccess }) {
           {/* Action Button */}
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-4 mt-2 bg-[#48e3a5] hover:bg-[#3cd094] text-black font-bold rounded-xl shadow-lg active-shrink transition-all text-sm flex justify-center items-center gap-2"
+            disabled={loading || lockoutTimeLeft > 0}
+            className={`w-full py-4 mt-2 font-bold rounded-xl shadow-lg active-shrink transition-all text-sm flex justify-center items-center gap-2 ${
+              lockoutTimeLeft > 0 
+                ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
+                : 'bg-[#48e3a5] hover:bg-[#3cd094] text-black'
+            }`}
           >
             {loading ? (
               <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin"></div>
+            ) : lockoutTimeLeft > 0 ? (
+              `Bloqueado: ${formatTimeLeft(lockoutTimeLeft)}`
             ) : (
               isSignUp ? 'Registrarse' : 'Iniciar Sesión'
             )}
