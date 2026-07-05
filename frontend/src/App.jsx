@@ -193,6 +193,7 @@ export default function App() {
           <Stats 
             transactions={transactions} 
             categories={categories}
+            activeRates={activeRates}
           />
         );
       default:
