@@ -34,6 +34,11 @@ self.addEventListener('activate', (e) => {
 
 // Estrategia Cache-First falling back to Network para velocidad de carga
 self.addEventListener('fetch', (e) => {
+  // Solo procesar peticiones con esquemas http y https (ignorar chrome-extension://, etc.)
+  if (!e.request.url.startsWith('http://') && !e.request.url.startsWith('https://')) {
+    return;
+  }
+
   // Evitar interceptar llamadas a Supabase API, DolarApi o Gemini para que no den problemas
   if (
     e.request.url.includes('supabase.co') || 
